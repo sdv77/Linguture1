@@ -20,50 +20,41 @@ import (
 )
 
 func main() {
-	// Загружаем переменные окружения из .env файла
 	godotenv.Load()
 
-	// Получаем настройки из переменных окружения
 	dbHost := getEnv("DB_HOST", "localhost")
 	dbPort := getEnv("DB_PORT", "5432")
 	dbUser := getEnv("DB_USER", "postgres")
 	dbPassword := getEnv("DB_PASSWORD", "postgres")
 	dbName := getEnv("DB_NAME", "words_db")
 
-	// Настройки JWT
-	jwtSecret := getEnv("JWT_SECRET", "your-secret-key-change-in-production")
+	jwtSecret := getEnv("JWT_SECRET", "super-secret-jwt-key-2026")
 	jwtExpiry := getEnv("JWT_EXPIRY", "24h")
 
-	// Настройки почты
 	smtpHost := getEnv("SMTP_HOST", "smtp.mail.ru")
 	smtpPortStr := getEnv("SMTP_PORT", "465")
 	smtpUser := getEnv("SMTP_USER", "")
 	smtpPassword := getEnv("SMTP_PASSWORD", "")
 	smtpFrom := getEnv("SMTP_FROM", smtpUser)
 
-	// Парсим порт
 	smtpPort, err := strconv.Atoi(smtpPortStr)
 	if err != nil {
 		log.Fatalf("Ошибка парсинга порта SMTP: %v", err)
 	}
 
-	// Парсим время жизни токена
 	tokenExpiry, err := time.ParseDuration(jwtExpiry)
 	if err != nil {
 		log.Fatalf("Ошибка парсинга времени жизни токена: %w", err)
 	}
 
-	// Подключаемся к базе данных
 	db, err := database.ConnectDB(dbHost, dbPort, dbUser, dbPassword, dbName)
 	if err != nil {
 		log.Fatalf("Ошибка подключения к базе данных: %v", err)
 	}
 	defer db.Close()
 
-	// Создаем сервис токенов
 	tokenService := token.NewService(jwtSecret, tokenExpiry)
 
-	// Создаем почтовый сервис (может быть nil если нет настроек)
 	var emailService *email.Service
 	if smtpUser != "" && smtpPassword != "" {
 		emailConfig := email.Config{
@@ -72,42 +63,47 @@ func main() {
 			Username: smtpUser,
 			Password: smtpPassword,
 			From:     smtpFrom,
-			// Убрали UseSSL - теперь определяется автоматически по порту
 		}
 		emailService = email.NewService(emailConfig)
 		log.Printf("Почтовый сервис настроен: %s:%d", smtpHost, smtpPort)
 	} else {
-		log.Println("Предупреждение: почтовый сервис не настроен (нет SMTP_USER или SMTP_PASSWORD)")
+		log.Println("Предупреждение: почтовый сервис не настроен")
 	}
 
-	// Создаем репозитории
 	userRepo := repository.NewUserRepository(db)
 	wordRepo := repository.NewWordRepository(db)
+	lessonRepo := repository.NewLessonRepository(db)
+	userLessonRepo := repository.NewUserLessonRepository(db)
+	teacherRepo := repository.NewTeacherRepository(db)
 
-	// Создаем сервисы
 	authService := service.NewAuthService(userRepo, tokenService, emailService)
 	wordService := service.NewWordService(wordRepo)
+	lessonService := service.NewLessonService(lessonRepo)
+	userLessonService := service.NewUserLessonService(userLessonRepo, lessonRepo)
+	teacherAuthService := service.NewTeacherAuthService(teacherRepo, tokenService)
 
-	// Создаем хендлеры
 	authHandler := handlers.NewAuthHandler(authService, emailService)
 	wordHandler := handlers.NewWordHandler(wordService)
+	lessonHandler := handlers.NewLessonHandler(lessonService, userLessonService)
+	teacherAuthHandler := handlers.NewTeacherAuthHandler(teacherAuthService)
 
-	// Создаем middleware
 	authMiddleware := middleware.NewAuthMiddleware(tokenService)
 
-	// Создаем роутер
 	router := mux.NewRouter()
 
-	// Добавляем обработчик CORS
 	router.Use(corsMiddleware)
 
-	// Публичные маршруты (не требуют аутентификации)
+	// Публичные маршруты аутентификации
 	authRouter := router.PathPrefix("/api/auth").Subrouter()
 	authRouter.HandleFunc("/register", authHandler.Register).Methods("POST", "OPTIONS")
 	authRouter.HandleFunc("/login", authHandler.Login).Methods("POST", "OPTIONS")
 	authRouter.HandleFunc("/verify", authHandler.VerifyEmail).Methods("GET", "OPTIONS")
 
-	// Защищенные маршруты (требуют аутентификации)
+	// Защищенные маршруты пользователей
+	userRouter := router.PathPrefix("/api/user").Subrouter()
+	userRouter.Use(authMiddleware.Middleware)
+	userRouter.HandleFunc("/me", authHandler.GetCurrentUser).Methods("GET", "OPTIONS")
+
 	wordsRouter := router.PathPrefix("/api/words").Subrouter()
 	wordsRouter.Use(authMiddleware.Middleware)
 	wordsRouter.HandleFunc("", wordHandler.CreateWord).Methods("POST", "OPTIONS")
@@ -116,30 +112,45 @@ func main() {
 	wordsRouter.HandleFunc("/{id}", wordHandler.UpdateWord).Methods("PUT", "OPTIONS")
 	wordsRouter.HandleFunc("/{id}", wordHandler.DeleteWord).Methods("DELETE", "OPTIONS")
 
-	// Маршрут для получения текущего пользователя
-	userRouter := router.PathPrefix("/api/user").Subrouter()
-	userRouter.Use(authMiddleware.Middleware)
-	userRouter.HandleFunc("/me", authHandler.GetCurrentUser).Methods("GET", "OPTIONS")
+	// Маршруты уроков (публичные и защищенные)
+	lessonsPublicRouter := router.PathPrefix("/api/lessons").Subrouter()
+	lessonsPublicRouter.HandleFunc("", lessonHandler.GetAllLessons).Methods("GET", "OPTIONS")
+	lessonsPublicRouter.HandleFunc("/{id}", lessonHandler.GetLessonByID).Methods("GET", "OPTIONS")
+	lessonsPublicRouter.HandleFunc("/{id}/words", lessonHandler.GetLessonWithWords).Methods("GET", "OPTIONS")
 
-	// Запускаем сервер
+	lessonsProtectedRouter := router.PathPrefix("/api/lessons").Subrouter()
+	lessonsProtectedRouter.Use(authMiddleware.Middleware)
+	lessonsProtectedRouter.HandleFunc("/{id}/start", lessonHandler.StartLesson).Methods("POST", "OPTIONS")
+	lessonsProtectedRouter.HandleFunc("/{id}/complete", lessonHandler.CompleteLesson).Methods("POST", "OPTIONS")
+	lessonsProtectedRouter.HandleFunc("/my", lessonHandler.GetUserLessons).Methods("GET", "OPTIONS")
+	lessonsProtectedRouter.HandleFunc("/stats", lessonHandler.GetProgressStats).Methods("GET", "OPTIONS")
+
+	// Маршруты учителей (аутентификация)
+	teacherAuthRouter := router.PathPrefix("/api/teacher/auth").Subrouter()
+	teacherAuthRouter.HandleFunc("/login", teacherAuthHandler.Login).Methods("POST", "OPTIONS")
+	teacherAuthRouter.HandleFunc("/me", teacherAuthHandler.GetTeacher).Methods("GET", "OPTIONS")
+
+	// Маршруты учителей (уроки)
+	teacherLessonsRouter := router.PathPrefix("/api/teacher/lessons").Subrouter()
+	// TODO: Добавить middleware для учителей
+	teacherLessonsRouter.HandleFunc("", lessonHandler.GetTeacherLessons).Methods("GET", "OPTIONS")
+	teacherLessonsRouter.HandleFunc("", lessonHandler.CreateLesson).Methods("POST", "OPTIONS")
+	teacherLessonsRouter.HandleFunc("/{id}", lessonHandler.UpdateLesson).Methods("PUT", "OPTIONS")
+	teacherLessonsRouter.HandleFunc("/{id}", lessonHandler.DeleteLesson).Methods("DELETE", "OPTIONS")
+
 	port := getEnv("PORT", "8080")
 	log.Printf("Сервер запущен на порту %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
-// corsMiddleware добавляет заголовки CORS для разрешения запросов с фронтенда
+// corsMiddleware добавляет заголовки CORS
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Разрешаем запросы с любого источника (для разработки)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		// Разрешаем методы
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		// Разрешаем заголовки
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		// Разрешаем credentials (если понадобится)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		// Обработка preflight запросов
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -149,7 +160,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// getEnv возвращает значение переменной окружения или значение по умолчанию
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {
