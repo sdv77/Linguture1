@@ -1,6 +1,9 @@
 <template>
   <div class="words-container">
-    <h1>Словарь слов</h1>
+    <div class="header">
+      <h1>Словарь слов</h1>
+      <button @click="logout" class="btn btn-logout">Выйти</button>
+    </div>
     
     <!-- Форма добавления слова -->
     <div class="form-container">
@@ -51,7 +54,7 @@
     
     <!-- Список слов -->
     <div class="words-list">
-      <h2>Все слова ({{ words.length }})</h2>
+      <h2>Ваши слова ({{ words.length }})</h2>
       
       <div v-if="loading" class="loading">Загрузка...</div>
       
@@ -96,11 +99,14 @@
 
 <script>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'WordsView',
   
   setup() {
+    const router = useRouter();
+    
     // Состояние компонента
     const words = ref([]);
     const loading = ref(false);
@@ -114,15 +120,32 @@ export default {
     // Базовый URL API
     const API_URL = 'http://localhost:8080/api/words';
     
+    // Функция для получения заголовков с токеном
+    const getAuthHeaders = () => {
+      const token = localStorage.getItem('token');
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+    };
+    
     // Загрузка всех слов
     const loadWords = async () => {
       loading.value = true;
       errorMessage.value = '';
       
       try {
-        const response = await fetch(API_URL);
+        const response = await fetch(API_URL, {
+          headers: getAuthHeaders()
+        });
         
         if (!response.ok) {
+          if (response.status === 401) {
+            // Токен недействителен, выходим из системы
+            localStorage.removeItem('token');
+            router.push('/login');
+            return;
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
@@ -145,26 +168,20 @@ export default {
         
         const method = editingWord.value ? 'PUT' : 'POST';
         
-        console.log('Отправка запроса:', { url, method, data: formData.value });
-        
         const response = await fetch(url, {
           method: method,
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify(formData.value)
         });
         
-        console.log('Ответ сервера:', {
-          status: response.status,
-          ok: response.ok,
-          headers: Object.fromEntries(response.headers.entries())
-        });
-        
         if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('token');
+            router.push('/login');
+            return;
+          }
           const errorText = await response.text();
-          console.error('Тело ошибки:', errorText);
-          throw new Error(`Ошибка ${method}: ${response.status} - ${errorText || response.statusText}`);
+          throw new Error(`Ошибка ${method}: ${response.status}`);
         }
         
         // Обновляем список
@@ -200,21 +217,20 @@ export default {
       
       try {
         const url = `${API_URL}/${id}`;
-        console.log('Отправка запроса на удаление:', url);
         
         const response = await fetch(url, {
-          method: 'DELETE'
-        });
-        
-        console.log('Ответ сервера:', {
-          status: response.status,
-          ok: response.ok
+          method: 'DELETE',
+          headers: getAuthHeaders()
         });
         
         if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('token');
+            router.push('/login');
+            return;
+          }
           const errorText = await response.text();
-          console.error('Тело ошибки:', errorText);
-          throw new Error(`Ошибка удаления: ${response.status} - ${errorText || response.statusText}`);
+          throw new Error(`Ошибка удаления: ${response.status}`);
         }
         
         // Обновляем список
@@ -233,6 +249,12 @@ export default {
         meaning: ''
       };
       editingWord.value = null;
+    };
+    
+    // Выход из системы
+    const logout = () => {
+      localStorage.removeItem('token');
+      router.push('/login');
     };
     
     // Форматирование даты
@@ -262,6 +284,7 @@ export default {
       editWord,
       cancelEdit,
       deleteWord,
+      logout,
       formatDate
     };
   }
@@ -273,6 +296,18 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  margin: 0;
+  color: #333;
 }
 
 .form-container {
@@ -435,5 +470,14 @@ export default {
 
 .btn-delete:hover {
   background-color: #da190b;
+}
+
+.btn-logout {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-logout:hover {
+  background-color: #c82333;
 }
 </style>

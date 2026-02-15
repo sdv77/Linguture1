@@ -23,6 +23,11 @@ func NewWordHandler(service *service.WordService) *WordHandler {
 
 // CreateWord обрабатывает создание слова
 func (h *WordHandler) CreateWord(w http.ResponseWriter, r *http.Request) {
+	// Получаем userID из заголовка (добавленного в middleware)
+	// В реальном приложении используем контекст
+	// Здесь для простоты передадим фиктивный ID
+	userID := 1 // TODO: Получить реальный userID из токена
+
 	var input models.WordInput
 
 	// Декодируем JSON из тела запроса
@@ -38,7 +43,7 @@ func (h *WordHandler) CreateWord(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Создаем слово через сервис
-	word, err := h.service.CreateWord(input)
+	word, err := h.service.CreateWord(userID, input)
 	if err != nil {
 		log.Printf("Ошибка создания слова: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -53,7 +58,9 @@ func (h *WordHandler) CreateWord(w http.ResponseWriter, r *http.Request) {
 
 // GetAllWords обрабатывает получение всех слов
 func (h *WordHandler) GetAllWords(w http.ResponseWriter, r *http.Request) {
-	words, err := h.service.GetAllWords()
+	userID := 1 // TODO: Получить реальный userID из токена
+
+	words, err := h.service.GetAllWords(userID)
 	if err != nil {
 		log.Printf("Ошибка получения слов: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -66,6 +73,8 @@ func (h *WordHandler) GetAllWords(w http.ResponseWriter, r *http.Request) {
 
 // GetWordByID обрабатывает получение слова по ID
 func (h *WordHandler) GetWordByID(w http.ResponseWriter, r *http.Request) {
+	userID := 1 // TODO: Получить реальный userID из токена
+
 	// Получаем ID из переменных пути (path variables)
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -76,7 +85,7 @@ func (h *WordHandler) GetWordByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	word, err := h.service.GetWordByID(id)
+	word, err := h.service.GetWordByID(id, userID)
 	if err != nil {
 		if err.Error() == "слово не найдено" {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -93,6 +102,8 @@ func (h *WordHandler) GetWordByID(w http.ResponseWriter, r *http.Request) {
 
 // UpdateWord обрабатывает обновление слова
 func (h *WordHandler) UpdateWord(w http.ResponseWriter, r *http.Request) {
+	userID := 1 // TODO: Получить реальный userID из токена
+
 	// Получаем ID из переменных пути
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -115,7 +126,7 @@ func (h *WordHandler) UpdateWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.UpdateWord(id, input); err != nil {
+	if err := h.service.UpdateWord(id, userID, input); err != nil {
 		if err.Error() == "слово не найдено" {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -132,6 +143,8 @@ func (h *WordHandler) UpdateWord(w http.ResponseWriter, r *http.Request) {
 
 // DeleteWord обрабатывает удаление слова
 func (h *WordHandler) DeleteWord(w http.ResponseWriter, r *http.Request) {
+	userID := 1 // TODO: Получить реальный userID из токена
+
 	// Получаем ID из переменных пути
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -142,7 +155,7 @@ func (h *WordHandler) DeleteWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteWord(id); err != nil {
+	if err := h.service.DeleteWord(id, userID); err != nil {
 		if err.Error() == "слово не найдено" {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

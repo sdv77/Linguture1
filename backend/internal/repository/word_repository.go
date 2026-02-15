@@ -19,10 +19,10 @@ func NewWordRepository(db *sql.DB) *WordRepository {
 
 // Create создает новое слово в базе
 func (r *WordRepository) Create(word *models.Word) error {
-	query := `INSERT INTO words (word, meaning, created_at, updated_at) 
-              VALUES ($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO words (user_id, word, meaning, created_at, updated_at) 
+              VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
-	err := r.db.QueryRow(query, word.Word, word.Meaning, word.CreatedAt, word.UpdatedAt).
+	err := r.db.QueryRow(query, word.UserID, word.Word, word.Meaning, word.CreatedAt, word.UpdatedAt).
 		Scan(&word.ID)
 
 	if err != nil {
@@ -32,11 +32,12 @@ func (r *WordRepository) Create(word *models.Word) error {
 	return nil
 }
 
-// GetAll получает все слова
-func (r *WordRepository) GetAll() ([]models.Word, error) {
-	query := `SELECT id, word, meaning, created_at, updated_at FROM words ORDER BY id`
+// GetAll получает все слова пользователя
+func (r *WordRepository) GetAll(userID int) ([]models.Word, error) {
+	query := `SELECT id, user_id, word, meaning, created_at, updated_at 
+              FROM words WHERE user_id = $1 ORDER BY id`
 
-	rows, err := r.db.Query(query)
+	rows, err := r.db.Query(query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения слов: %w", err)
 	}
@@ -45,7 +46,7 @@ func (r *WordRepository) GetAll() ([]models.Word, error) {
 	var words []models.Word
 	for rows.Next() {
 		var word models.Word
-		err := rows.Scan(&word.ID, &word.Word, &word.Meaning, &word.CreatedAt, &word.UpdatedAt)
+		err := rows.Scan(&word.ID, &word.UserID, &word.Word, &word.Meaning, &word.CreatedAt, &word.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("ошибка сканирования строки: %w", err)
 		}
@@ -55,12 +56,13 @@ func (r *WordRepository) GetAll() ([]models.Word, error) {
 	return words, nil
 }
 
-// GetByID получает слово по ID
-func (r *WordRepository) GetByID(id int) (*models.Word, error) {
-	query := `SELECT id, word, meaning, created_at, updated_at FROM words WHERE id = $1`
+// GetByID получает слово по ID и проверяет принадлежность пользователю
+func (r *WordRepository) GetByID(id int, userID int) (*models.Word, error) {
+	query := `SELECT id, user_id, word, meaning, created_at, updated_at 
+              FROM words WHERE id = $1 AND user_id = $2`
 
 	var word models.Word
-	err := r.db.QueryRow(query, id).Scan(&word.ID, &word.Word, &word.Meaning, &word.CreatedAt, &word.UpdatedAt)
+	err := r.db.QueryRow(query, id, userID).Scan(&word.ID, &word.UserID, &word.Word, &word.Meaning, &word.CreatedAt, &word.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("слово не найдено")
@@ -71,11 +73,12 @@ func (r *WordRepository) GetByID(id int) (*models.Word, error) {
 	return &word, nil
 }
 
-// Update обновляет слово
-func (r *WordRepository) Update(id int, word *models.Word) error {
-	query := `UPDATE words SET word = $1, meaning = $2, updated_at = $3 WHERE id = $4`
+// Update обновляет слово пользователя
+func (r *WordRepository) Update(id int, userID int, word *models.Word) error {
+	query := `UPDATE words SET word = $1, meaning = $2, updated_at = $3 
+              WHERE id = $4 AND user_id = $5`
 
-	result, err := r.db.Exec(query, word.Word, word.Meaning, word.UpdatedAt, id)
+	result, err := r.db.Exec(query, word.Word, word.Meaning, word.UpdatedAt, id, userID)
 	if err != nil {
 		return fmt.Errorf("ошибка обновления слова: %w", err)
 	}
@@ -92,11 +95,11 @@ func (r *WordRepository) Update(id int, word *models.Word) error {
 	return nil
 }
 
-// Delete удаляет слово
-func (r *WordRepository) Delete(id int) error {
-	query := `DELETE FROM words WHERE id = $1`
+// Delete удаляет слово пользователя
+func (r *WordRepository) Delete(id int, userID int) error {
+	query := `DELETE FROM words WHERE id = $1 AND user_id = $2`
 
-	result, err := r.db.Exec(query, id)
+	result, err := r.db.Exec(query, id, userID)
 	if err != nil {
 		return fmt.Errorf("ошибка удаления слова: %w", err)
 	}

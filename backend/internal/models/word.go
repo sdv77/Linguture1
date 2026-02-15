@@ -4,11 +4,12 @@ import "time"
 
 // Word представляет сущность "слово"
 type Word struct {
-	ID        int       `json:"id"`         // Уникальный идентификатор
-	Word      string    `json:"word"`       // Само слово
-	Meaning   string    `json:"meaning"`    // Значение слова
-	CreatedAt time.Time `json:"created_at"` // Дата создания
-	UpdatedAt time.Time `json:"updated_at"` // Дата обновления
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"` // ID пользователя
+	Word      string    `json:"word"`
+	Meaning   string    `json:"meaning"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // WordInput используется для создания/обновления слова
