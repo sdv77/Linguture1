@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # База данных PostgreSQL
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: linguture_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: words_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d  # ⭐ Монтируем скрипты инициализации
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - linguture_network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Adminer (админка для базы данных)
+  # ============================================================================
+  adminer:
+    image: adminer:latest
+    container_name: linguture_adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - linguture_network
+    restart: unless-stopped
+
+  # backend-api сервис
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: linguture_backend_api
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: words_db
+      JWT_SECRET: 12345
+      JWT_EXPIRY: 24h
+      BACKEND_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - linguture_network
+    restart: unless-stopped
+    command: ["./app", "api"]  # ✅ Запускаем с аргументом "api"
+
+  # backend-admin сервис
+  backend-admin:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: linguture_backend_admin
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: words_db
+      JWT_SECRET: 12345
+      JWT_EXPIRY: 24h
+      ADMIN_PANEL_PORT: 8081
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - linguture_network
+    restart: unless-stopped
+    command: ["./app", "admin"]  # ✅ Запускаем с аргументом "admin"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: linguture_frontend
+    environment:
+      VITE_API_URL: http://localhost:8080
+      FRONTEND_PORT: 5173
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend-api
+    networks:
+      - linguture_network
+    restart: unless-stopped
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# ============================================================================
+# Сети и тома
+# ============================================================================
+networks:
+  linguture_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

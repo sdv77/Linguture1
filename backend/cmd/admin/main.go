@@ -1,6 +1,7 @@
-package main
+package admin
 
 import (
+	"embed" // 1. Импортируем пакет для встраивания файлов (официально: https://pkg.go.dev/embed)
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +17,14 @@ import (
 	"github.com/sdv77/Linguture1/pkg/token"
 )
 
-func main() {
+// 2. Эта директива встраивает файл в программу при компиляции
+// Файл должен лежать в той же папке, что и main.go (backend/cmd/admin/admin_panel.html)
+// Если этой строки не будет, компилятор не включит файл в программу, и возникнет ошибка при сборке
+//
+//go:embed admin_panel.html
+var embedFiles embed.FS // 3. Переменная для доступа к встроенным файлам
+
+func Main() {
 	godotenv.Load("../../.env")
 
 	// Настройки базы данных
@@ -45,15 +53,15 @@ func main() {
 	// Создание сервисов
 	tokenService := token.NewService(jwtSecret, tokenExpiry)
 
-	// Создаём экземпляр репозитория (используем другое имя переменной!)
-	adminRepository := adminRepo.NewAdminRepository(db) // adminRepository вместо adminRepo
+	// Создаём экземпляр репозитория
+	adminRepository := adminRepo.NewAdminRepository(db)
 
-	// Передаём один и тот же репозиторий для админов и учителей (он работает с обеими таблицами)
+	// Передаём один и тот же репозиторий для админов и учителей
 	adminSvc := adminService.NewAdminService(adminRepository, adminRepository, tokenService)
 
 	// Создание хендлеров
 	authHandler := adminHandlers.NewAdminAuthHandler(adminSvc)
-	backupHandler := adminHandlers.NewBackupHandler(adminSvc, db) // ПЕРЕДАЁМ db
+	backupHandler := adminHandlers.NewBackupHandler(adminSvc, db)
 	teacherHandler := adminHandlers.NewTeacherHandler(adminSvc)
 
 	// Middleware
@@ -83,7 +91,7 @@ func main() {
 	adminRouter.HandleFunc("/teachers/{id}", teacherHandler.UpdateTeacher).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/teachers/{id}", teacherHandler.DeleteTeacher).Methods("DELETE", "OPTIONS")
 
-	// Страница админ панели (простой HTML)
+	// Страница админ панели (теперь использует встроенный файл)
 	router.HandleFunc("/", serveAdminPanel).Methods("GET")
 
 	// Ссылка на Adminer
@@ -123,20 +131,16 @@ func getEnv(key, defaultValue string) string {
 	return value
 }
 
+// 4. Функция теперь читает файл из встроенной памяти, а не с диска
 func serveAdminPanel(w http.ResponseWriter, r *http.Request) {
-	// Читаем HTML файл из той же директории, где лежит main.go
-	htmlPath := "cmd/admin/admin_panel.html"
-
-	// Для go run из корня проекта
-	html, err := os.ReadFile(htmlPath)
+	// Читаем файл из переменной embedFiles (встроен в программу)
+	// Если не использовать embed, программа будет искать файл на диске и может не найти его
+	html, err := embedFiles.ReadFile("admin_panel.html")
 	if err != nil {
-		// Попробуем из текущей директории (если запускаем из cmd/admin)
-		html, err = os.ReadFile("admin_panel.html")
-		if err != nil {
-			log.Printf("Ошибка чтения HTML файла: %v", err)
-			http.Error(w, "Admin panel HTML not found", http.StatusInternalServerError)
-			return
-		}
+		// Эта ошибка теперь почти невозможна, но на всякий случай оставляем обработку
+		log.Printf("Ошибка чтения встроенного HTML файла: %v", err)
+		http.Error(w, "Admin panel HTML not found", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

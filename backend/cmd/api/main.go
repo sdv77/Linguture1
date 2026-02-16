@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"log"
@@ -19,13 +19,13 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func main() {
+func Main() {
 	godotenv.Load()
 
 	dbHost := getEnv("DB_HOST", "localhost")
 	dbPort := getEnv("DB_PORT", "5432")
-	dbUser := getEnv("DB_USER", "postgres")
-	dbPassword := getEnv("DB_PASSWORD", "postgres")
+	dbUser := getEnv("DB_USER", "moderator")
+	dbPassword := getEnv("DB_PASSWORD", "123")
 	dbName := getEnv("DB_NAME", "words_db")
 
 	jwtSecret := getEnv("JWT_SECRET", "super-secret-jwt-key-2026")
