@@ -94,8 +94,7 @@
         }
         .status-active { color: #4CAF50; font-weight: bold; }
         .status-inactive { color: #f44336; font-weight: bold; }
-        .hidden { display: none; }
-        #loginForm, #adminPanel { margin-top: 20px; }
+        .hidden { display: none !important; }
         input, select {
             padding: 10px;
             margin: 5px 0;
@@ -145,7 +144,7 @@
                     <div id="loginMessage" class="message hidden"></div>
                     <div class="form-group">
                         <label for="username">Имя пользователя:</label>
-                        <input type="text" id="username" placeholder="Введите имя пользователя" value="admin">
+                        <input type="text" id="username" placeholder="Введите имя пользователя">
                     </div>
                     <div class="form-group">
                         <label for="password">Пароль:</label>
@@ -167,9 +166,15 @@
                         <strong>ℹ️ Информация:</strong> Создайте резервную копию базы данных для защиты ваших данных.
                     </div>
                     <button id="backupBtn" class="btn">📥 Скачать резервную копию</button>
-                    <div class="info-box" style="margin-top: 15px;">
-                        <strong>⚠️ Восстановление:</strong> Функция восстановления из бэкапа временно недоступна. 
-                        Используйте <a href="/adminer" target="_blank" style="color: #2196F3; text-decoration: underline;">Adminer</a> для ручного восстановления.
+                    
+                    <div style="margin-top: 20px;">
+                        <h3>Восстановление из резервной копии</h3>
+                        <div class="info-box" style="background: #fff3cd; border-left-color: #ffc107;">
+                            <strong>⚠️ Внимание:</strong> Восстановление заменит текущие данные в базе данных.
+                        </div>
+                        <input type="file" id="restoreFile" accept=".sql" style="margin: 10px 0; padding: 8px; width: 100%; border: 1px solid #ddd; border-radius: 6px;">
+                        <button id="restoreBtn" class="btn btn-secondary">📤 Восстановить из файла</button>
+                        <div id="restoreMessage" class="message hidden" style="margin-top: 10px;"></div>
                     </div>
                 </div>
                 
@@ -205,12 +210,12 @@
                         <h3>Добавить нового учителя</h3>
                         <div id="teacherMessage" class="message hidden"></div>
                         <div class="form-group">
-                            <label for="newTeacherEmail">Email:</label>
-                            <input type="email" id="newTeacherEmail" placeholder="teacher@example.com">
+                            <label for="newTeacherEmail">Email *:</label>
+                            <input type="email" id="newTeacherEmail" placeholder="teacher@example.com" required>
                         </div>
                         <div class="form-group">
-                            <label for="newTeacherPassword">Пароль:</label>
-                            <input type="password" id="newTeacherPassword" placeholder="Пароль учителя">
+                            <label for="newTeacherPassword">Пароль *:</label>
+                            <input type="password" id="newTeacherPassword" placeholder="Пароль учителя" required>
                         </div>
                         <div class="form-group">
                             <label for="newTeacherFullName">Полное имя:</label>
@@ -218,6 +223,31 @@
                         </div>
                         <button id="saveTeacherBtn" class="btn">Сохранить</button>
                         <button id="cancelTeacherBtn" class="btn btn-secondary" style="margin-left: 10px;">Отмена</button>
+                    </div>
+                    
+                    <div id="editTeacherModal" class="hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%;">
+                            <h3>Редактировать учителя</h3>
+                            <div id="editTeacherMessage" class="message hidden"></div>
+                            <input type="hidden" id="editTeacherId">
+                            <div class="form-group">
+                                <label for="editTeacherEmail">Email *:</label>
+                                <input type="email" id="editTeacherEmail" placeholder="teacher@example.com" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editTeacherFullName">Полное имя:</label>
+                                <input type="text" id="editTeacherFullName" placeholder="Иван Иванов">
+                            </div>
+                            <div class="form-group">
+                                <label for="editTeacherActive">Статус:</label>
+                                <select id="editTeacherActive">
+                                    <option value="true">Активен</option>
+                                    <option value="false">Неактивен</option>
+                                </select>
+                            </div>
+                            <button id="saveEditTeacherBtn" class="btn">Сохранить</button>
+                            <button id="cancelEditTeacherBtn" class="btn btn-secondary" style="margin-left: 10px;">Отмена</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -229,207 +259,308 @@
                     <a href="/adminer" target="_blank">
                         <button class="btn btn-adminer">Открыть Adminer</button>
                     </a>
-                    <div class="info-box" style="margin-top: 15px; background: #fff3cd; border-left-color: #ffc107;">
-                        <strong>💡 Примечание:</strong> Adminer будет доступен после настройки в Docker (порт 8082). 
-                        Сейчас вы будете перенаправлены на заглушку.
-                    </div>
                 </div>
             </div>
         </div>
     </div>
     
     <script>
-        let authToken = localStorage.getItem('adminToken');
+    document.addEventListener('DOMContentLoaded', () => {
+        // Скрываем модальное окно при загрузке
+        const modal = document.getElementById('editTeacherModal');
+        if (modal) modal.classList.add('hidden');
         
         const loginSection = document.getElementById('loginSection');
         const adminPanel = document.getElementById('adminPanel');
-        const loginMessage = document.getElementById('loginMessage');
-        const teachersTableBody = document.getElementById('teachersTableBody');
-        const addTeacherForm = document.getElementById('addTeacherForm');
-        const teacherMessage = document.getElementById('teacherMessage');
+        let authToken = localStorage.getItem('adminToken');
         
-        // Проверка авторизации
-        if (authToken) {
+        // Управление видимостью через классы (НЕ через style.display!)
+        if (authToken && adminPanel && loginSection) {
             loginSection.classList.add('hidden');
             adminPanel.classList.remove('hidden');
             loadTeachers();
+        } else if (loginSection && adminPanel) {
+            loginSection.classList.remove('hidden');
+            adminPanel.classList.add('hidden');
         }
         
+        // === ОБРАБОТЧИКИ ===
         // Вход
-        document.getElementById('loginBtn').addEventListener('click', async () => {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+        document.getElementById('loginBtn')?.addEventListener('click', async () => {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const msg = document.getElementById('loginMessage');
             
-            try {
-                const response = await fetch('/api/admin/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Неверное имя пользователя или пароль');
+            if (!u || !p) {
+                if (msg) {
+                    msg.textContent = 'Заполните все поля';
+                    msg.className = 'message error';
+                    msg.classList.remove('hidden');
                 }
-                
-                const data = await response.json();
-                localStorage.setItem('adminToken', data.token);
-                authToken = data.token;
-                
-                loginMessage.className = 'message success';
-                loginMessage.textContent = 'Вход выполнен успешно!';
-                loginMessage.classList.remove('hidden');
-                
-                setTimeout(() => {
-                    loginSection.classList.add('hidden');
-                    adminPanel.classList.remove('hidden');
-                    loadTeachers();
-                }, 1000);
-            } catch (error) {
-                loginMessage.className = 'message error';
-                loginMessage.textContent = error.message || 'Ошибка входа';
-                loginMessage.classList.remove('hidden');
-            }
-        });
-        
-        // Выход
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            localStorage.removeItem('adminToken');
-            authToken = null;
-            adminPanel.classList.add('hidden');
-            loginSection.classList.remove('hidden');
-            loginMessage.classList.add('hidden');
-        });
-        
-        // Скачать бэкап
-        document.getElementById('backupBtn').addEventListener('click', () => {
-            window.location.href = '/api/admin/backup';
-        });
-        
-        // Загрузить список учителей
-        document.getElementById('loadTeachersBtn').addEventListener('click', loadTeachers);
-        
-        // Добавить учителя - показать форму
-        document.getElementById('addTeacherBtn').addEventListener('click', () => {
-            addTeacherForm.classList.remove('hidden');
-        });
-        
-        // Отмена добавления учителя
-        document.getElementById('cancelTeacherBtn').addEventListener('click', () => {
-            addTeacherForm.classList.add('hidden');
-            teacherMessage.classList.add('hidden');
-            document.getElementById('newTeacherEmail').value = '';
-            document.getElementById('newTeacherPassword').value = '';
-            document.getElementById('newTeacherFullName').value = '';
-        });
-        
-        // Сохранить учителя
-        document.getElementById('saveTeacherBtn').addEventListener('click', async () => {
-            const email = document.getElementById('newTeacherEmail').value;
-            const password = document.getElementById('newTeacherPassword').value;
-            const fullName = document.getElementById('newTeacherFullName').value;
-            
-            if (!email || !password || !fullName) {
-                showTeacherMessage('Заполните все поля', 'error');
                 return;
             }
             
             try {
-                const response = await fetch('/api/admin/teachers', {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+                
+                if (!res.ok) throw new Error('Неверный логин или пароль');
+                
+                const data = await res.json();
+                localStorage.setItem('adminToken', data.token);
+                authToken = data.token;
+                
+                if (msg) {
+                    msg.textContent = 'Вход успешен!';
+                    msg.className = 'message success';
+                    msg.classList.remove('hidden');
+                }
+                
+                setTimeout(() => {
+                    if (loginSection) loginSection.classList.add('hidden');
+                    if (adminPanel) adminPanel.classList.remove('hidden');
+                    if (msg) msg.classList.add('hidden');
+                    loadTeachers();
+                }, 800);
+            } catch (e) {
+                if (msg) {
+                    msg.textContent = e.message;
+                    msg.className = 'message error';
+                    msg.classList.remove('hidden');
+                }
+            }
+        });
+        
+        // Выход
+        document.getElementById('logoutBtn')?.addEventListener('click', () => {
+            localStorage.removeItem('adminToken');
+            authToken = null;
+            if (adminPanel) adminPanel.classList.add('hidden');
+            if (loginSection) loginSection.classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        });
+        
+        // Скачать бэкап
+        document.getElementById('backupBtn')?.addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/admin/backup', {
+                    headers: {'Authorization': `Bearer ${authToken}`}
+                });
+                
+                if (!res.ok) throw new Error('Ошибка создания бэкапа');
+                
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup_${new Date().toISOString().slice(0,10)}.sql`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 0);
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        });
+        
+        // Восстановление
+        document.getElementById('restoreBtn')?.addEventListener('click', async () => {
+            const file = document.getElementById('restoreFile')?.files[0];
+            if (!file) return alert('Выберите файл');
+            
+            const fd = new FormData();
+            fd.append('backup', file);
+            
+            try {
+                const res = await fetch('/api/admin/restore', {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${authToken}`},
+                    body: fd
+                });
+                
+                const data = await res.json();
+                const msg = document.getElementById('restoreMessage');
+                if (msg) {
+                    msg.textContent = data.message || (res.ok ? 'Восстановлено!' : 'Ошибка');
+                    msg.className = `message ${res.ok ? 'success' : 'error'}`;
+                    msg.classList.remove('hidden');
+                    setTimeout(() => msg.classList.add('hidden'), 5000);
+                }
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        });
+        
+        // Добавить учителя
+        document.getElementById('addTeacherBtn')?.addEventListener('click', () => {
+            document.getElementById('addTeacherForm').classList.remove('hidden');
+        });
+        
+        document.getElementById('cancelTeacherBtn')?.addEventListener('click', () => {
+            document.getElementById('addTeacherForm').classList.add('hidden');
+            document.getElementById('teacherMessage').classList.add('hidden');
+            ['newTeacherEmail', 'newTeacherPassword', 'newTeacherFullName'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+        });
+        
+        document.getElementById('saveTeacherBtn')?.addEventListener('click', async () => {
+            const email = document.getElementById('newTeacherEmail').value;
+            const pwd = document.getElementById('newTeacherPassword').value;
+            if (!email || !pwd) return alert('Email и пароль обязательны');
+            
+            try {
+                const res = await fetch('/api/admin/teachers', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${authToken}`
                     },
-                    body: JSON.stringify({ email, password, fullName })
+                    body: JSON.stringify({
+                        email,
+                        password: pwd,
+                        full_name: document.getElementById('newTeacherFullName').value || ''
+                    })
                 });
                 
-                if (!response.ok) {
-                    throw new Error('Ошибка создания учителя');
-                }
+                if (!res.ok) throw new Error('Ошибка создания');
                 
-                showTeacherMessage('Учитель успешно создан!', 'success');
-                addTeacherForm.classList.add('hidden');
+                alert('Учитель создан!');
+                document.getElementById('addTeacherForm').classList.add('hidden');
                 loadTeachers();
-                
-                setTimeout(() => {
-                    teacherMessage.classList.add('hidden');
-                    document.getElementById('newTeacherEmail').value = '';
-                    document.getElementById('newTeacherPassword').value = '';
-                    document.getElementById('newTeacherFullName').value = '';
-                }, 2000);
-            } catch (error) {
-                showTeacherMessage(error.message || 'Ошибка создания учителя', 'error');
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
             }
         });
         
-        // Загрузка списка учителей
-        async function loadTeachers() {
-            try {
-                const response = await fetch('/api/admin/teachers', {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки списка учителей');
-                }
-                
-                const teachers = await response.json();
-                
-                if (teachers.length === 0) {
-                    teachersTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Нет учителей</td></tr>';
-                    return;
-                }
-                
-                teachersTableBody.innerHTML = teachers.map(teacher => `
-                    <tr>
-                        <td>${teacher.id}</td>
-                        <td>${teacher.email}</td>
-                        <td>${teacher.full_name || '-'}</td>
-                        <td><span class="status-${teacher.is_active ? 'active' : 'inactive'}">${teacher.is_active ? 'Активен' : 'Неактивен'}</span></td>
-                        <td>${new Date(teacher.created_at).toLocaleDateString('ru-RU')}</td>
-                        <td>
-                            <button class="btn btn-secondary btn-sm" onclick="editTeacher(${teacher.id})">✏️</button>
-                            <button class="btn btn-secondary btn-sm" onclick="deleteTeacher(${teacher.id})" style="background: #f44336; margin-left: 5px;">🗑️</button>
-                        </td>
-                    </tr>
-                `).join('');
-            } catch (error) {
-                teachersTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Ошибка загрузки: ${error.message}</td></tr>`;
-            }
-        }
+        // Обновить список
+        document.getElementById('loadTeachersBtn')?.addEventListener('click', loadTeachers);
         
-        // Удалить учителя
-        window.deleteTeacher = async (id) => {
-            if (!confirm('Вы уверены, что хотите удалить этого учителя?')) return;
+        // Модальное окно
+        document.getElementById('cancelEditTeacherBtn')?.addEventListener('click', () => {
+            if (modal) {
+                modal.classList.add('hidden');
+                const msg = document.getElementById('editTeacherMessage');
+                if (msg) msg.classList.add('hidden');
+            }
+        });
+        
+        document.getElementById('saveEditTeacherBtn')?.addEventListener('click', async () => {
+            const idEl = document.getElementById('editTeacherId');
+            const emailEl = document.getElementById('editTeacherEmail');
+            if (!idEl || !emailEl) return;
+            
+            const id = idEl.value;
+            const email = emailEl.value;
+            if (!email) return alert('Email обязателен');
             
             try {
-                const response = await fetch(`/api/admin/teachers/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${authToken}` }
+                const res = await fetch(`/api/admin/teachers/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        email,
+                        full_name: document.getElementById('editTeacherFullName')?.value || '',
+                        is_active: document.getElementById('editTeacherActive')?.value === 'true'
+                    })
                 });
                 
-                if (!response.ok) {
-                    throw new Error('Ошибка удаления учителя');
-                }
+                if (!res.ok) throw new Error('Ошибка сохранения');
                 
-                alert('Учитель успешно удален');
+                alert('Сохранено!');
+                if (modal) modal.classList.add('hidden');
                 loadTeachers();
-            } catch (error) {
-                alert(error.message || 'Ошибка удаления учителя');
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        });
+        
+        // === ФУНКЦИИ ===
+        async function loadTeachers() {
+            const tbody = document.getElementById('teachersTableBody');
+            if (!tbody) return;
+            
+            try {
+                const res = await fetch('/api/admin/teachers', {
+                    headers: {'Authorization': `Bearer ${authToken}`}
+                });
+                
+                if (!res.ok) throw new Error('Ошибка загрузки');
+                
+                const teachers = await res.json();
+                tbody.innerHTML = teachers.length ? teachers.map(t => `
+                    <tr>
+                        <td>${t.id}</td>
+                        <td>${t.email}</td>
+                        <td>${t.full_name || '-'}</td>
+                        <td><span class="status-${t.is_active ? 'active' : 'inactive'}">${t.is_active ? 'Активен' : 'Неактивен'}</span></td>
+                        <td>${new Date(t.created_at).toLocaleDateString('ru-RU')}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="editTeacher(${t.id})">✏️</button>
+                            <button class="btn btn-secondary btn-sm" onclick="deleteTeacher(${t.id})" style="background:#f44336;margin-left:5px">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('') : '<tr><td colspan="6" style="text-align:center;padding:20px">Нет учителей</td></tr>';
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:red">Ошибка: ${e.message}</td></tr>`;
+            }
+        }
+        
+        // Глобальные функции
+        window.editTeacher = async (id) => {
+            if (modal) modal.classList.remove('hidden');
+            
+            try {
+                const res = await fetch(`/api/admin/teachers/${id}`, {
+                    headers: {'Authorization': `Bearer ${authToken}`}
+                });
+                
+                if (!res.ok) throw new Error('Учитель не найден');
+                
+                const t = await res.json();
+                const idEl = document.getElementById('editTeacherId');
+                const emailEl = document.getElementById('editTeacherEmail');
+                const nameEl = document.getElementById('editTeacherFullName');
+                const activeEl = document.getElementById('editTeacherActive');
+                
+                if (idEl) idEl.value = t.id;
+                if (emailEl) emailEl.value = t.email;
+                if (nameEl) nameEl.value = t.full_name || '';
+                if (activeEl) activeEl.value = t.is_active ? 'true' : 'false';
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+                if (modal) modal.classList.add('hidden');
             }
         };
         
-        // Редактировать учителя (заглушка)
-        window.editTeacher = (id) => {
-            alert('Функция редактирования будет добавлена в будущих версиях');
+        window.deleteTeacher = async (id) => {
+            if (!confirm('Удалить учителя?')) return;
+            
+            try {
+                const res = await fetch(`/api/admin/teachers/${id}`, {
+                    method: 'DELETE',
+                    headers: {'Authorization': `Bearer ${authToken}`}
+                });
+                
+                if (!res.ok) throw new Error('Ошибка удаления');
+                
+                alert('Учитель удален');
+                loadTeachers();
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
         };
-        
-        // Показать сообщение для учителя
-        function showTeacherMessage(text, type) {
-            teacherMessage.textContent = text;
-            teacherMessage.className = `message ${type}`;
-            teacherMessage.classList.remove('hidden');
-        }
+    });
     </script>
 </body>
 </html>
