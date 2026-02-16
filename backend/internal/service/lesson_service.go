@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sdv77/Linguture1/internal/models"
@@ -76,4 +77,20 @@ func (s *LessonService) DeleteLesson(id int) error {
 // GetTeacherLessons получает уроки учителя
 func (s *LessonService) GetTeacherLessons(teacherID int) ([]models.Lesson, error) {
 	return s.lessonRepo.GetByTeacherID(teacherID)
+}
+
+// AddWordToLesson добавляет слово к уроку
+func (s *LessonService) AddWordToLesson(lessonID int, wordInput models.LessonVocabularyInput) error {
+	// Проверяем, существует ли урок
+	_, err := s.lessonRepo.GetByID(lessonID)
+	if err != nil {
+		return fmt.Errorf("урок не найден: %w", err)
+	}
+
+	return s.lessonRepo.AddWordToLesson(lessonID, wordInput)
+}
+
+// DeleteWordFromLesson удаляет слово из урока
+func (s *LessonService) DeleteWordFromLesson(wordID int) error {
+	return s.lessonRepo.DeleteWordFromLesson(wordID)
 }

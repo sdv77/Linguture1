@@ -2,7 +2,6 @@
   <div class="words-container">
     <div class="header">
       <h1>Словарь слов</h1>
-      <button @click="logout" class="btn btn-logout">Выйти</button>
     </div>
     
     <!-- Форма добавления слова -->

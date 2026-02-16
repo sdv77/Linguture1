@@ -3,9 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   {
     path: '/',
-    name: 'Words',
-    component: () => import('../views/WordsView.vue'),
-    meta: { requiresAuth: true }
+    name: 'Home',
+    component: () => import('../views/HomeView.vue')
   },
   {
     path: '/lessons',
@@ -17,6 +16,12 @@ const routes = [
     path: '/lesson/:id',
     name: 'Lesson',
     component: () => import('../views/LessonView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/words',
+    name: 'Words',
+    component: () => import('../views/WordsView.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -52,6 +57,12 @@ router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   const teacherToken = localStorage.getItem('teacher_token')
   
+  // Если пользователь авторизован и пытается попасть на главную, перенаправляем на уроки
+  if (to.path === '/' && (token || teacherToken)) {
+    next('/lessons')
+    return
+  }
+  
   // Проверка обычной аутентификации
   if (to.meta.requiresAuth && !token) {
     next('/login')
@@ -65,8 +76,8 @@ router.beforeEach((to, from, next) => {
   }
   
   // Если учитель пытается зайти в обычный раздел
-  if (teacherToken && to.path.startsWith('/teacher') === false && to.path !== '/login' && to.path !== '/register') {
-    if (to.path !== '/teacher/dashboard' && to.path !== '/teacher/login') {
+  if (teacherToken && !to.path.startsWith('/teacher') && to.path !== '/login' && to.path !== '/register') {
+    if (to.path !== '/lessons' && to.path !== '/lesson/:id' && to.path !== '/words') {
       next('/teacher/dashboard')
       return
     }
@@ -74,7 +85,7 @@ router.beforeEach((to, from, next) => {
   
   // Если обычный пользователь пытается зайти в раздел учителя
   if (token && to.path.startsWith('/teacher')) {
-    next('/')
+    next('/lessons')
     return
   }
   

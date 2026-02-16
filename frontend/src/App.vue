@@ -2,11 +2,11 @@
   <div id="app">
     <nav v-if="showNavbar" class="navbar">
       <div class="nav-container">
-        <router-link to="/" class="nav-logo">Words App</router-link>
+        <router-link to="/" class="nav-logo">Linguture</router-link>
         
         <div v-if="isLoggedIn" class="nav-links">
           <router-link to="/lessons" class="nav-link">📚 Уроки</router-link>
-          <router-link to="/" class="nav-link">📖 Мои слова</router-link>
+          <router-link to="/words" class="nav-link">📖 Мои слова</router-link> <!-- ИСПРАВЛЕНО: было to="/" -->
           <button @click="logout" class="nav-link nav-logout">🚪 Выйти</button>
         </div>
         
@@ -48,6 +48,16 @@ export default {
       localStorage.removeItem('teacher_token')
       router.push('/teacher/login')
     }
+    
+    // Если пользователь авторизован и на главной странице - перенаправляем на уроки
+    onMounted(() => {
+      if (isLoggedIn.value && router.currentRoute.value.path === '/') {
+        router.push('/lessons')
+      }
+      if (isTeacher.value && router.currentRoute.value.path === '/') {
+        router.push('/teacher/dashboard')
+      }
+    })
     
     return {
       isLoggedIn,

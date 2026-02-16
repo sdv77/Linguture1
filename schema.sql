@@ -58,8 +58,18 @@ CREATE TABLE IF NOT EXISTS lesson_vocabulary (
     transcription VARCHAR(255),
     example TEXT,
     lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    order_in_lesson INTEGER DEFAULT 0,  -- КРИТИЧЕСКИ ВАЖНО: добавляем столбец здесь
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Добавляем столбец order_in_lesson если его нет (для существующих таблиц)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'lesson_vocabulary' AND column_name = 'order_in_lesson') THEN
+        ALTER TABLE lesson_vocabulary ADD COLUMN order_in_lesson INTEGER DEFAULT 0;
+    END IF;
+END $$;
 
 -- Создаем таблицу прогресса пользователей по урокам
 CREATE TABLE IF NOT EXISTS user_lessons (
@@ -81,7 +91,6 @@ CREATE TABLE IF NOT EXISTS words (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     word VARCHAR(255) NOT NULL,
     meaning TEXT NOT NULL,
-    source_lesson_id INTEGER REFERENCES lessons(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -97,6 +106,7 @@ CREATE INDEX IF NOT EXISTS idx_user_lessons_lesson ON user_lessons(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_words_user_id ON words(user_id);
 CREATE INDEX IF NOT EXISTS idx_words_word ON words(word);
 CREATE INDEX IF NOT EXISTS idx_lesson_vocabulary_lesson ON lesson_vocabulary(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_vocabulary_order ON lesson_vocabulary(order_in_lesson);  -- Теперь столбец существует!
 
 -- Тестовый учитель (пароль: teacher123)
 INSERT INTO teachers (email, password, full_name, is_active) VALUES
@@ -140,34 +150,34 @@ SELECT 'Профессии', 'Различные профессии', 3, 'vocabu
 WHERE NOT EXISTS (SELECT 1 FROM lessons WHERE title = 'Профессии');
 
 -- Тестовые слова для первого урока
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'hello', 'привет', '[həˈləʊ]', 'Hello, how are you?', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'hello', 'привет', '[həˈləʊ]', 'Hello, how are you?', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'hello' AND lesson_id = 1);
 
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'hi', 'привет (неформально)', '[haɪ]', 'Hi there!', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'hi', 'привет (неформально)', '[haɪ]', 'Hi there!', 1, 2
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'hi' AND lesson_id = 1);
 
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'goodbye', 'до свидания', '[ˌɡʊdˈbaɪ]', 'Goodbye, see you later!', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'goodbye', 'до свидания', '[ˌɡʊdˈbaɪ]', 'Goodbye, see you later!', 1, 3
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'goodbye' AND lesson_id = 1);
 
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'bye', 'пока (неформально)', '[baɪ]', 'Bye bye!', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'bye', 'пока (неформально)', '[baɪ]', 'Bye bye!', 1, 4
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'bye' AND lesson_id = 1);
 
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'good morning', 'доброе утро', '[ˌɡʊd ˈmɔːnɪŋ]', 'Good morning!', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'good morning', 'доброе утро', '[ˌɡʊd ˈmɔːnɪŋ]', 'Good morning!', 1, 5
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'good morning' AND lesson_id = 1);
 
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'good afternoon', 'добрый день', '[ˌɡʊd ˌɑːftəˈnuːn]', 'Good afternoon!', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'good afternoon', 'добрый день', '[ˌɡʊd ˌɑːftəˈnuːn]', 'Good afternoon!', 1, 6
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'good afternoon' AND lesson_id = 1);
 
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'good evening', 'добрый вечер', '[ˌɡʊd ˈiːvnɪŋ]', 'Good evening!', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'good evening', 'добрый вечер', '[ˌɡʊd ˈiːvnɪŋ]', 'Good evening!', 1, 7
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'good evening' AND lesson_id = 1);
 
-INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id) 
-SELECT 'good night', 'спокойной ночи', '[ˌɡʊd ˈnaɪt]', 'Good night!', 1
+INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
+SELECT 'good night', 'спокойной ночи', '[ˌɡʊd ˈnaɪt]', 'Good night!', 1, 8
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'good night' AND lesson_id = 1);

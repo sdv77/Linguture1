@@ -92,7 +92,6 @@ func (h *LessonHandler) GetLessonWithWords(w http.ResponseWriter, r *http.Reques
 
 // StartLesson обрабатывает начало урока
 func (h *LessonHandler) StartLesson(w http.ResponseWriter, r *http.Request) {
-	// Получаем userID из заголовка (временно используем фиксированный ID)
 	userID := 1
 
 	vars := mux.Vars(r)
@@ -129,7 +128,6 @@ func (h *LessonHandler) CompleteLesson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем баллы из тела запроса
 	var input struct {
 		Score int `json:"score"`
 	}
@@ -183,7 +181,7 @@ func (h *LessonHandler) GetProgressStats(w http.ResponseWriter, r *http.Request)
 
 // GetTeacherLessons обрабатывает получение уроков учителя
 func (h *LessonHandler) GetTeacherLessons(w http.ResponseWriter, r *http.Request) {
-	teacherID := 1 // Временно используем фиксированный ID
+	teacherID := 1
 
 	lessons, err := h.lessonService.GetTeacherLessons(teacherID)
 	if err != nil {
@@ -274,5 +272,60 @@ func (h *LessonHandler) DeleteLesson(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Урок успешно удален",
+	})
+}
+
+// AddWordToLesson обрабатывает добавление слова к уроку
+func (h *LessonHandler) AddWordToLesson(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+
+	lessonID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Неверный формат ID урока", http.StatusBadRequest)
+		return
+	}
+
+	var input models.LessonVocabularyInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Неверный формат данных", http.StatusBadRequest)
+		return
+	}
+
+	input.LessonID = lessonID
+
+	if err := h.lessonService.AddWordToLesson(lessonID, input); err != nil {
+		log.Printf("Ошибка добавления слова к уроку: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Слово успешно добавлено к уроку",
+	})
+}
+
+// DeleteWordFromLesson обрабатывает удаление слова из урока
+func (h *LessonHandler) DeleteWordFromLesson(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	wordIDStr := vars["wordId"]
+
+	wordID, err := strconv.Atoi(wordIDStr)
+	if err != nil {
+		http.Error(w, "Неверный формат ID слова", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.lessonService.DeleteWordFromLesson(wordID); err != nil {
+		log.Printf("Ошибка удаления слова из урока: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Слово успешно удалено из урока",
 	})
 }

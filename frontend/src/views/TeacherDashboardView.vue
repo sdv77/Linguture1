@@ -51,7 +51,7 @@
       </div>
     </div>
     
-    <!-- Модальное окно -->
+    <!-- Модальное окно создания/редактирования урока -->
     <div v-if="showCreateModal" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -93,6 +93,25 @@
             </select>
           </div>
           
+          <!-- Слова урока -->
+          <div class="words-section">
+            <h4>Слова урока ({{ lessonWords.length }})</h4>
+            
+            <div v-for="(word, index) in lessonWords" :key="index" class="word-item">
+              <div class="word-row">
+                <input v-model="word.word" placeholder="Слово *" required />
+                <input v-model="word.meaning" placeholder="Перевод *" required />
+                <input v-model="word.transcription" placeholder="Транскрипция" />
+                <input v-model="word.example" placeholder="Пример использования" />
+                <button type="button" @click="removeWord(index)" class="btn btn-small btn-delete" :disabled="lessonWords.length === 1">🗑️</button>
+              </div>
+            </div>
+            
+            <button type="button" @click="addWord" class="btn btn-secondary btn-add-word">
+              ➕ Добавить слово
+            </button>
+          </div>
+          
           <div class="modal-actions">
             <button type="submit" class="btn btn-primary">
               {{ editingLesson ? 'Сохранить' : 'Создать' }}
@@ -130,6 +149,10 @@ export default {
       order_num: 0
     });
     
+    const lessonWords = ref([
+      { word: '', meaning: '', transcription: '', example: '' }
+    ]);
+    
     const API_URL = 'http://localhost:8080/api/teacher/lessons';
     
     const getAuthHeaders = () => {
@@ -164,6 +187,7 @@ export default {
     
     const saveLesson = async () => {
       try {
+        // Сохраняем урок
         const url = editingLesson.value 
           ? `${API_URL}/${editingLesson.value.id}`
           : API_URL;
@@ -181,6 +205,31 @@ export default {
           throw new Error(errorData.message || `Ошибка сохранения: ${response.status}`);
         }
         
+        const lessonData = await response.json();
+        const lessonId = editingLesson.value ? editingLesson.value.id : lessonData.id;
+        
+        // Добавляем слова к уроку
+        for (let i = 0; i < lessonWords.value.length; i++) {
+          const word = lessonWords.value[i];
+          if (word.word && word.meaning) {
+            const wordResponse = await fetch(`${API_URL}/${lessonId}/words`, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({
+                word: word.word,
+                meaning: word.meaning,
+                transcription: word.transcription,
+                example: word.example,
+                order_in_lesson: i
+              })
+            });
+            
+            if (!wordResponse.ok) {
+              throw new Error(`Ошибка добавления слова: ${wordResponse.status}`);
+            }
+          }
+        }
+        
         await loadLessons();
         closeModal();
         alert(editingLesson.value ? 'Урок успешно обновлен!' : 'Урок успешно создан!');
@@ -190,7 +239,7 @@ export default {
       }
     };
     
-    const editLesson = (lesson) => {
+    const editLesson = async (lesson) => {
       editingLesson.value = lesson;
       lessonForm.value = {
         title: lesson.title,
@@ -199,6 +248,26 @@ export default {
         lesson_type: lesson.lesson_type,
         order_num: lesson.order_num
       };
+      
+      // Загружаем слова урока
+      try {
+        const response = await fetch(`http://localhost:8080/api/lessons/${lesson.id}/words`);
+        if (response.ok) {
+          const data = await response.json();
+          lessonWords.value = data.words.map(w => ({
+            word: w.word || '',
+            meaning: w.meaning || '',
+            transcription: w.transcription || '',
+            example: w.example || ''
+          }));
+        } else {
+          lessonWords.value = [{ word: '', meaning: '', transcription: '', example: '' }];
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки слов урока:', err);
+        lessonWords.value = [{ word: '', meaning: '', transcription: '', example: '' }];
+      }
+      
       showCreateModal.value = true;
     };
     
@@ -225,6 +294,21 @@ export default {
       }
     };
     
+    const addWord = () => {
+      lessonWords.value.push({
+        word: '',
+        meaning: '',
+        transcription: '',
+        example: ''
+      });
+    };
+    
+    const removeWord = (index) => {
+      if (lessonWords.value.length > 1) {
+        lessonWords.value.splice(index, 1);
+      }
+    };
+    
     const closeModal = () => {
       showCreateModal.value = false;
       editingLesson.value = null;
@@ -235,6 +319,9 @@ export default {
         lesson_type: 'vocabulary',
         order_num: 0
       };
+      lessonWords.value = [
+        { word: '', meaning: '', transcription: '', example: '' }
+      ];
     };
     
     const logout = () => {
@@ -271,9 +358,12 @@ export default {
       showCreateModal,
       editingLesson,
       lessonForm,
+      lessonWords,
       saveLesson,
       editLesson,
       deleteLesson,
+      addWord,
+      removeWord,
       closeModal,
       logout,
       getLessonTypeLabel

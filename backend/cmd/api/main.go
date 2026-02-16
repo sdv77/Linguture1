@@ -70,6 +70,7 @@ func main() {
 		log.Println("Предупреждение: почтовый сервис не настроен")
 	}
 
+	// Создаем репозитории
 	userRepo := repository.NewUserRepository(db)
 	wordRepo := repository.NewWordRepository(db)
 	lessonRepo := repository.NewLessonRepository(db)
@@ -79,7 +80,7 @@ func main() {
 	authService := service.NewAuthService(userRepo, tokenService, emailService)
 	wordService := service.NewWordService(wordRepo)
 	lessonService := service.NewLessonService(lessonRepo)
-	userLessonService := service.NewUserLessonService(userLessonRepo, lessonRepo)
+	userLessonService := service.NewUserLessonService(userLessonRepo, lessonRepo, wordRepo)
 	teacherAuthService := service.NewTeacherAuthService(teacherRepo, tokenService)
 
 	authHandler := handlers.NewAuthHandler(authService, emailService)
@@ -132,11 +133,12 @@ func main() {
 
 	// Маршруты учителей (уроки)
 	teacherLessonsRouter := router.PathPrefix("/api/teacher/lessons").Subrouter()
-	// TODO: Добавить middleware для учителей
 	teacherLessonsRouter.HandleFunc("", lessonHandler.GetTeacherLessons).Methods("GET", "OPTIONS")
 	teacherLessonsRouter.HandleFunc("", lessonHandler.CreateLesson).Methods("POST", "OPTIONS")
 	teacherLessonsRouter.HandleFunc("/{id}", lessonHandler.UpdateLesson).Methods("PUT", "OPTIONS")
 	teacherLessonsRouter.HandleFunc("/{id}", lessonHandler.DeleteLesson).Methods("DELETE", "OPTIONS")
+	teacherLessonsRouter.HandleFunc("/{id}/words", lessonHandler.AddWordToLesson).Methods("POST", "OPTIONS")
+	teacherLessonsRouter.HandleFunc("/words/{wordId}", lessonHandler.DeleteWordFromLesson).Methods("DELETE", "OPTIONS")
 
 	port := getEnv("PORT", "8080")
 	log.Printf("Сервер запущен на порту %s", port)

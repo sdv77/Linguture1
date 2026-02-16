@@ -115,3 +115,14 @@ func (r *WordRepository) Delete(id int, userID int) error {
 
 	return nil
 }
+
+// ExistsByWordAndUserID проверяет, существует ли слово у пользователя
+func (r *WordRepository) ExistsByWordAndUserID(word string, userID int) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM words WHERE word = $1 AND user_id = $2)`
+	var exists bool
+	err := r.db.QueryRow(query, word, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("ошибка проверки существования слова: %w", err)
+	}
+	return exists, nil
+}

@@ -51,4 +51,5 @@ type LessonVocabularyInput struct {
 	Transcription string `json:"transcription"`
 	Example       string `json:"example"`
 	LessonID      int    `json:"lesson_id" validate:"required"`
+	OrderInLesson int    `json:"order_in_lesson"`
 }

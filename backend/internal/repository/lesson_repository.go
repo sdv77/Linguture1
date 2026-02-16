@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/sdv77/Linguture1/internal/models"
 )
@@ -86,7 +87,7 @@ func (r *LessonRepository) GetWordsByLessonID(lessonID int) ([]models.LessonVoca
 	query := `SELECT id, word, meaning, transcription, example, lesson_id, created_at 
               FROM lesson_vocabulary 
               WHERE lesson_id = $1 
-              ORDER BY id`
+              ORDER BY order_in_lesson, id`
 
 	rows, err := r.db.Query(query, lessonID)
 	if err != nil {
@@ -245,4 +246,47 @@ func (r *LessonRepository) GetByTeacherID(teacherID int) ([]models.Lesson, error
 	}
 
 	return lessons, nil
+}
+
+// AddWordToLesson добавляет слово к уроку
+func (r *LessonRepository) AddWordToLesson(lessonID int, wordInput models.LessonVocabularyInput) error {
+	query := `INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson, created_at) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err := r.db.Exec(query,
+		wordInput.Word,
+		wordInput.Meaning,
+		wordInput.Transcription,
+		wordInput.Example,
+		lessonID,
+		wordInput.OrderInLesson,
+		time.Now(),
+	)
+
+	if err != nil {
+		return fmt.Errorf("ошибка добавления слова к уроку: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteWordFromLesson удаляет слово из урока
+func (r *LessonRepository) DeleteWordFromLesson(wordID int) error {
+	query := `DELETE FROM lesson_vocabulary WHERE id = $1`
+
+	result, err := r.db.Exec(query, wordID)
+	if err != nil {
+		return fmt.Errorf("ошибка удаления слова из урока: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка получения количества удаленных строк: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("слово не найдено")
+	}
+
+	return nil
 }
