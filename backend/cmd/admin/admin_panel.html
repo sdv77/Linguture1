@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ панель - Linguture</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border-radius: 12px;
+            background: #f8f9fa;
+            border-left: 5px solid #4CAF50;
+        }
+        .section h2 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 24px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-adminer {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .status-active { color: #4CAF50; font-weight: bold; }
+        .status-inactive { color: #f44336; font-weight: bold; }
+        .hidden { display: none; }
+        #loginForm, #adminPanel { margin-top: 20px; }
+        input, select {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            width: 100%;
+            font-size: 16px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛠️ Админ панель Linguture</h1>
+            <p>Управление базой данных и пользователями</p>
+        </header>
+        
+        <div class="content">
+            <div id="loginSection">
+                <div class="section">
+                    <h2>🔐 Вход для администратора</h2>
+                    <div id="loginMessage" class="message hidden"></div>
+                    <div class="form-group">
+                        <label for="username">Имя пользователя:</label>
+                        <input type="text" id="username" placeholder="Введите имя пользователя" value="admin">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Пароль:</label>
+                        <input type="password" id="password" placeholder="Введите пароль">
+                    </div>
+                    <button id="loginBtn" class="btn">Войти</button>
+                </div>
+            </div>
+            
+            <div id="adminPanel" class="hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Панель управления</h2>
+                    <button id="logoutBtn" class="btn btn-secondary">🚪 Выйти</button>
+                </div>
+                
+                <div class="section">
+                    <h2>💾 Резервное копирование</h2>
+                    <div class="info-box">
+                        <strong>ℹ️ Информация:</strong> Создайте резервную копию базы данных для защиты ваших данных.
+                    </div>
+                    <button id="backupBtn" class="btn">📥 Скачать резервную копию</button>
+                    <div class="info-box" style="margin-top: 15px;">
+                        <strong>⚠️ Восстановление:</strong> Функция восстановления из бэкапа временно недоступна. 
+                        Используйте <a href="/adminer" target="_blank" style="color: #2196F3; text-decoration: underline;">Adminer</a> для ручного восстановления.
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h2>👨‍🏫 Управление учителями</h2>
+                    <div class="info-box">
+                        <strong>ℹ️ Информация:</strong> Здесь вы можете управлять учетными записями учителей.
+                    </div>
+                    <button id="loadTeachersBtn" class="btn">Обновить список</button>
+                    <button id="addTeacherBtn" class="btn btn-secondary" style="margin-left: 10px;">➕ Добавить учителя</button>
+                    
+                    <div id="teachersTableContainer" style="margin-top: 20px;">
+                        <table id="teachersTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Email</th>
+                                    <th>Полное имя</th>
+                                    <th>Статус</th>
+                                    <th>Дата создания</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teachersTableBody">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 20px;">Загрузка списка учителей...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="addTeacherForm" class="hidden" style="margin-top: 20px; padding: 20px; background: white; border-radius: 12px; border: 1px solid #ddd;">
+                        <h3>Добавить нового учителя</h3>
+                        <div id="teacherMessage" class="message hidden"></div>
+                        <div class="form-group">
+                            <label for="newTeacherEmail">Email:</label>
+                            <input type="email" id="newTeacherEmail" placeholder="teacher@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="newTeacherPassword">Пароль:</label>
+                            <input type="password" id="newTeacherPassword" placeholder="Пароль учителя">
+                        </div>
+                        <div class="form-group">
+                            <label for="newTeacherFullName">Полное имя:</label>
+                            <input type="text" id="newTeacherFullName" placeholder="Иван Иванов">
+                        </div>
+                        <button id="saveTeacherBtn" class="btn">Сохранить</button>
+                        <button id="cancelTeacherBtn" class="btn btn-secondary" style="margin-left: 10px;">Отмена</button>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h2>⚙️ Дополнительные инструменты</h2>
+                    <div class="info-box">
+                        <strong>🗄️ Adminer:</strong> Визуальный инструмент для полного управления базой данных.
+                    </div>
+                    <a href="/adminer" target="_blank">
+                        <button class="btn btn-adminer">Открыть Adminer</button>
+                    </a>
+                    <div class="info-box" style="margin-top: 15px; background: #fff3cd; border-left-color: #ffc107;">
+                        <strong>💡 Примечание:</strong> Adminer будет доступен после настройки в Docker (порт 8082). 
+                        Сейчас вы будете перенаправлены на заглушку.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let authToken = localStorage.getItem('adminToken');
+        
+        const loginSection = document.getElementById('loginSection');
+        const adminPanel = document.getElementById('adminPanel');
+        const loginMessage = document.getElementById('loginMessage');
+        const teachersTableBody = document.getElementById('teachersTableBody');
+        const addTeacherForm = document.getElementById('addTeacherForm');
+        const teacherMessage = document.getElementById('teacherMessage');
+        
+        // Проверка авторизации
+        if (authToken) {
+            loginSection.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+            loadTeachers();
+        }
+        
+        // Вход
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Неверное имя пользователя или пароль');
+                }
+                
+                const data = await response.json();
+                localStorage.setItem('adminToken', data.token);
+                authToken = data.token;
+                
+                loginMessage.className = 'message success';
+                loginMessage.textContent = 'Вход выполнен успешно!';
+                loginMessage.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    loginSection.classList.add('hidden');
+                    adminPanel.classList.remove('hidden');
+                    loadTeachers();
+                }, 1000);
+            } catch (error) {
+                loginMessage.className = 'message error';
+                loginMessage.textContent = error.message || 'Ошибка входа';
+                loginMessage.classList.remove('hidden');
+            }
+        });
+        
+        // Выход
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('adminToken');
+            authToken = null;
+            adminPanel.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            loginMessage.classList.add('hidden');
+        });
+        
+        // Скачать бэкап
+        document.getElementById('backupBtn').addEventListener('click', () => {
+            window.location.href = '/api/admin/backup';
+        });
+        
+        // Загрузить список учителей
+        document.getElementById('loadTeachersBtn').addEventListener('click', loadTeachers);
+        
+        // Добавить учителя - показать форму
+        document.getElementById('addTeacherBtn').addEventListener('click', () => {
+            addTeacherForm.classList.remove('hidden');
+        });
+        
+        // Отмена добавления учителя
+        document.getElementById('cancelTeacherBtn').addEventListener('click', () => {
+            addTeacherForm.classList.add('hidden');
+            teacherMessage.classList.add('hidden');
+            document.getElementById('newTeacherEmail').value = '';
+            document.getElementById('newTeacherPassword').value = '';
+            document.getElementById('newTeacherFullName').value = '';
+        });
+        
+        // Сохранить учителя
+        document.getElementById('saveTeacherBtn').addEventListener('click', async () => {
+            const email = document.getElementById('newTeacherEmail').value;
+            const password = document.getElementById('newTeacherPassword').value;
+            const fullName = document.getElementById('newTeacherFullName').value;
+            
+            if (!email || !password || !fullName) {
+                showTeacherMessage('Заполните все поля', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/teachers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ email, password, fullName })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка создания учителя');
+                }
+                
+                showTeacherMessage('Учитель успешно создан!', 'success');
+                addTeacherForm.classList.add('hidden');
+                loadTeachers();
+                
+                setTimeout(() => {
+                    teacherMessage.classList.add('hidden');
+                    document.getElementById('newTeacherEmail').value = '';
+                    document.getElementById('newTeacherPassword').value = '';
+                    document.getElementById('newTeacherFullName').value = '';
+                }, 2000);
+            } catch (error) {
+                showTeacherMessage(error.message || 'Ошибка создания учителя', 'error');
+            }
+        });
+        
+        // Загрузка списка учителей
+        async function loadTeachers() {
+            try {
+                const response = await fetch('/api/admin/teachers', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки списка учителей');
+                }
+                
+                const teachers = await response.json();
+                
+                if (teachers.length === 0) {
+                    teachersTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Нет учителей</td></tr>';
+                    return;
+                }
+                
+                teachersTableBody.innerHTML = teachers.map(teacher => `
+                    <tr>
+                        <td>${teacher.id}</td>
+                        <td>${teacher.email}</td>
+                        <td>${teacher.full_name || '-'}</td>
+                        <td><span class="status-${teacher.is_active ? 'active' : 'inactive'}">${teacher.is_active ? 'Активен' : 'Неактивен'}</span></td>
+                        <td>${new Date(teacher.created_at).toLocaleDateString('ru-RU')}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="editTeacher(${teacher.id})">✏️</button>
+                            <button class="btn btn-secondary btn-sm" onclick="deleteTeacher(${teacher.id})" style="background: #f44336; margin-left: 5px;">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                teachersTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Ошибка загрузки: ${error.message}</td></tr>`;
+            }
+        }
+        
+        // Удалить учителя
+        window.deleteTeacher = async (id) => {
+            if (!confirm('Вы уверены, что хотите удалить этого учителя?')) return;
+            
+            try {
+                const response = await fetch(`/api/admin/teachers/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка удаления учителя');
+                }
+                
+                alert('Учитель успешно удален');
+                loadTeachers();
+            } catch (error) {
+                alert(error.message || 'Ошибка удаления учителя');
+            }
+        };
+        
+        // Редактировать учителя (заглушка)
+        window.editTeacher = (id) => {
+            alert('Функция редактирования будет добавлена в будущих версиях');
+        };
+        
+        // Показать сообщение для учителя
+        function showTeacherMessage(text, type) {
+            teacherMessage.textContent = text;
+            teacherMessage.className = `message ${type}`;
+            teacherMessage.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

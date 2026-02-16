@@ -181,3 +181,19 @@ WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'good evening' AN
 INSERT INTO lesson_vocabulary (word, meaning, transcription, example, lesson_id, order_in_lesson) 
 SELECT 'good night', 'спокойной ночи', '[ˌɡʊd ˈnaɪt]', 'Good night!', 1, 8
 WHERE NOT EXISTS (SELECT 1 FROM lesson_vocabulary WHERE word = 'good night' AND lesson_id = 1);
+
+-- Создаем таблицу администраторов (без хеширования для упрощения)
+CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,  -- Простой пароль (не хэш!)
+    full_name VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Создаем тестового администратора (пароль: admin123 в открытом виде)
+INSERT INTO admins (username, password, full_name, is_active) VALUES
+('admin', 'admin123', 'Администратор системы', TRUE)
+ON CONFLICT (username) DO NOTHING;
