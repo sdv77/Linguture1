@@ -4,14 +4,16 @@
       <div class="nav-container">
         <router-link to="/" class="nav-logo">Linguture</router-link>
         
+        <!-- 🔹 Обычные пользователи -->
         <div v-if="isLoggedIn" class="nav-links">
           <router-link to="/lessons" class="nav-link">📚 Уроки</router-link>
-          <router-link to="/words" class="nav-link">📖 Мои слова</router-link> <!-- ИСПРАВЛЕНО: было to="/" -->
-          <button @click="logout" class="nav-link nav-logout">🚪 Выйти</button>
+          <router-link to="/words" class="nav-link">📖 Мои слова</router-link>
+          <router-link to="/profile" class="nav-link nav-profile">👤 Профиль</router-link>
         </div>
         
+        <!-- 🔹 Учителя -->
         <div v-if="isTeacher" class="nav-links">
-          <router-link to="/teacher/dashboard" class="nav-link">👨‍🏫 Панель учителя</router-link>
+          <router-link to="/teacher/dashboard" class="nav-link">👨‍ Панель учителя</router-link>
           <button @click="logoutTeacher" class="nav-link nav-logout">🚪 Выйти</button>
         </div>
       </div>
@@ -41,7 +43,9 @@ export default {
     
     const logout = () => {
       localStorage.removeItem('token')
-      router.push('/login')
+      localStorage.removeItem('profile_is_setup')
+      localStorage.removeItem('user_id')
+      router.push('/')
     }
     
     const logoutTeacher = () => {
@@ -151,5 +155,13 @@ body {
 
 .nav-logout:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+.nav-profile {
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+
+.nav-profile:hover {
+  opacity: 1;
 }
 </style>

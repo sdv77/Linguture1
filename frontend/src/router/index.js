@@ -25,6 +25,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('../views/ProfileView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('../views/LoginView.vue')
@@ -52,6 +58,7 @@ const routes = [
     component: () => import('../views/TeacherDashboardView.vue'),
     meta: { requiresTeacherAuth: true }
   }
+  
 ]
 
 const router = createRouter({
