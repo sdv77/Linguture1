@@ -20,12 +20,13 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 
 // Create создает нового пользователя
 func (r *UserRepository) Create(user *models.User) error {
-	query := `INSERT INTO users (email, password_hash, verification_token, verification_token_expires, created_at, updated_at) 
-              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
+	query := `INSERT INTO users (email, password_hash, is_verified, verification_token, verification_token_expires, created_at, updated_at) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
 
 	err := r.db.QueryRow(query,
 		user.Email,
 		user.PasswordHash,
+		true,
 		user.VerificationToken,
 		user.VerificationTokenExpires,
 		user.CreatedAt,
