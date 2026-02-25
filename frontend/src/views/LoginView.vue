@@ -11,6 +11,7 @@
             v-model="formData.email" 
             required 
             placeholder="Введите ваш email"
+            :disabled="loading"
           />
         </div>
         
@@ -22,6 +23,7 @@
             v-model="formData.password" 
             required 
             placeholder="Введите пароль"
+            :disabled="loading"
           />
         </div>
         
@@ -42,71 +44,69 @@
 </template>
 
 <script>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+// 🔹 Импортируем нашу API-функцию вместо прямого fetch
+import { login as apiLogin } from '../api/auth'
 
 export default {
   name: 'LoginView',
   
   setup() {
-    const router = useRouter();
+    const router = useRouter()
     const formData = ref({
       email: '',
       password: ''
-    });
-    const loading = ref(false);
-    const errorMessage = ref('');
-    
-    const API_URL = 'http://localhost:8080/api/auth/login';
+    })
+    const loading = ref(false)
+    const errorMessage = ref('')
     
     const login = async () => {
-      loading.value = true;
-      errorMessage.value = '';
+      loading.value = true
+      errorMessage.value = ''
       
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            email: formData.value.email,
-            password: formData.value.password
-          })
-        });
+        // 🔹 Используем нашу API-функцию
+        const data = await apiLogin(formData.value.email, formData.value.password)
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Ошибка входа');
+        // ✅ Сохраняем токен
+        localStorage.setItem('token', data.token)
+        
+        // 🔹 Сохраняем данные пользователя (если есть)
+        if (data.user) {
+          localStorage.setItem('user_id', data.user.id)
+          localStorage.setItem('profile_is_setup', data.user.is_setup)
         }
         
-        const data = await response.json();
+        // 🔹 КЛЮЧЕВОЙ МОМЕНТ: проверяем флаг настройки профиля
+        if (data.needs_setup === true) {
+          // Профиль не настроен → перенаправляем на страницу настройки
+          router.replace('/setup-profile')
+        } else {
+          // Профиль настроен → идём на уроки
+          router.replace('/lessons')
+        }
         
-        // Сохраняем токен в localStorage
-        localStorage.setItem('token', data.token);
-        
-        // Переходим на главную страницу
-        router.push('/');
       } catch (error) {
-        console.error('Ошибка входа:', error);
-        errorMessage.value = error.message || 'Ошибка при входе';
+        console.error('Ошибка входа:', error)
+        errorMessage.value = error.message || 'Ошибка при входе'
       } finally {
-        loading.value = false;
+        loading.value = false
       }
-    };
+    }
     
     return {
       formData,
       loading,
       errorMessage,
       login
-    };
+    }
   }
-};
+}
 </script>
 
 <style scoped>
-/* Стили такие же, как в RegisterView.vue */
+/* Стили без изменений — оставляем как есть */
 .auth-container {
   min-height: 100vh;
   display: flex;
@@ -154,6 +154,11 @@ export default {
 .form-group input:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.form-group input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
 }
 
 .error-message {

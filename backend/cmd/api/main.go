@@ -19,6 +19,22 @@ import (
 	"github.com/joho/godotenv"
 )
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func Main() {
 	godotenv.Load()
 
@@ -101,9 +117,11 @@ func Main() {
 	authRouter.HandleFunc("/verify", authHandler.VerifyEmail).Methods("GET", "OPTIONS")
 
 	// Защищенные маршруты пользователей
+	// Защищенные маршруты пользователей
 	userRouter := router.PathPrefix("/api/user").Subrouter()
 	userRouter.Use(authMiddleware.Middleware)
 	userRouter.HandleFunc("/me", authHandler.GetCurrentUser).Methods("GET", "OPTIONS")
+	userRouter.HandleFunc("/setup", authHandler.SetupProfile).Methods("POST", "GET", "OPTIONS")
 
 	wordsRouter := router.PathPrefix("/api/words").Subrouter()
 	wordsRouter.Use(authMiddleware.Middleware)
@@ -146,21 +164,6 @@ func Main() {
 }
 
 // corsMiddleware добавляет заголовки CORS
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
 
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)

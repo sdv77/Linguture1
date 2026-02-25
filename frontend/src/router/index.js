@@ -34,6 +34,13 @@ const routes = [
     name: 'Register',
     component: () => import('../views/RegisterView.vue')
   },
+  // 🔹 НОВЫЙ: Страница настройки профиля
+  {
+    path: '/setup-profile',
+    name: 'ProfileSetup',
+    component: () => import('../views/ProfileSetupView.vue'),
+    meta: { requiresAuth: true }
+  },
   {
     path: '/teacher/login',
     name: 'TeacherLogin',
@@ -53,7 +60,7 @@ const router = createRouter({
 })
 
 // Navigation guard для проверки аутентификации
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
   const teacherToken = localStorage.getItem('teacher_token')
   
@@ -61,6 +68,37 @@ router.beforeEach((to, from, next) => {
   if (to.path === '/' && (token || teacherToken)) {
     next('/lessons')
     return
+  }
+  
+  // 🔹 ПРОВЕРКА: если токен есть, но профиль не настроен
+  if (token && to.path !== '/setup-profile' && to.path !== '/login' && to.path !== '/register') {
+    const isSetup = localStorage.getItem('profile_is_setup')
+    
+    // Если не знаем статус или профиль не настроен → проверяем через API
+    if (isSetup === 'false' || isSetup === null) {
+      try {
+        // Делаем запрос к API для получения актуальных данных
+        const response = await fetch('http://localhost:8080/api/user/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (response.ok) {
+          const userData = await response.json()
+          localStorage.setItem('profile_is_setup', userData.is_setup)
+          
+          // Если профиль действительно не настроен → перенаправляем
+          if (!userData.is_setup && to.path !== '/setup-profile') {
+            next('/setup-profile')
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка проверки профиля:', error)
+        // Не прерываем навигацию при ошибке
+      }
+    }
   }
   
   // Проверка обычной аутентификации

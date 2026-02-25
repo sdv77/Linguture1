@@ -19,8 +19,15 @@ func NewAuthMiddleware(tokenService *token.Service) *AuthMiddleware {
 }
 
 // Middleware возвращает функцию-обработчик для проверки токена
+
 func (m *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 🔹 ВАЖНО: пропускаем OPTIONS запросы (CORS preflight)
+		if r.Method == "OPTIONS" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Получаем токен из заголовка Authorization
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -44,8 +51,7 @@ func (m *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Добавляем данные пользователя в контекст запроса
-		// (в реальном приложении можно использовать контекст)
+		// Добавляем данные пользователя в заголовок
 		r.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
 		r.Header.Set("X-User-Email", email)
 

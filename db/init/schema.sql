@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS users (
     is_verified BOOLEAN DEFAULT FALSE,
     verification_token VARCHAR(255),
     verification_token_expires TIMESTAMP,
+    
+    -- 🔹 НОВЫЕ ПОЛЯ для настройки профиля 🔹
+    nickname VARCHAR(50) UNIQUE,              -- Уникальный никнейм (показываем в UI)
+    native_language VARCHAR(2),               -- Код родного языка: 'ru', 'en', 'es'
+    learning_language VARCHAR(2),             -- Код изучаемого языка
+    is_setup BOOLEAN DEFAULT FALSE,           -- ✅ false = нужно донастроить профиль
+    
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

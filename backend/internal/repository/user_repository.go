@@ -19,9 +19,14 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 // Create создает нового пользователя
+// Create создает нового пользователя
 func (r *UserRepository) Create(user *models.User) error {
-	query := `INSERT INTO users (email, password_hash, is_verified, verification_token, verification_token_expires, created_at, updated_at) 
-              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+	query := `INSERT INTO users (
+		email, password_hash, is_verified, 
+		verification_token, verification_token_expires,
+		nickname, native_language, learning_language, is_setup,
+		created_at, updated_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`
 
 	err := r.db.QueryRow(query,
 		user.Email,
@@ -29,6 +34,10 @@ func (r *UserRepository) Create(user *models.User) error {
 		true,
 		user.VerificationToken,
 		user.VerificationTokenExpires,
+		user.Nickname,         // 🔹 новое
+		user.NativeLanguage,   // 🔹 новое
+		user.LearningLanguage, // 🔹 новое
+		user.IsSetup,          // 🔹 новое (по умолчанию false)
 		user.CreatedAt,
 		user.UpdatedAt,
 	).Scan(&user.ID)
@@ -41,9 +50,13 @@ func (r *UserRepository) Create(user *models.User) error {
 }
 
 // FindByEmail находит пользователя по email
+// FindByEmail находит пользователя по email
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
-	query := `SELECT id, email, password_hash, is_verified, verification_token, verification_token_expires, created_at, updated_at 
-              FROM users WHERE email = $1`
+	query := `SELECT id, email, password_hash, is_verified, 
+		verification_token, verification_token_expires,
+		nickname, native_language, learning_language, is_setup,
+		created_at, updated_at 
+		FROM users WHERE email = $1`
 
 	var user models.User
 	err := r.db.QueryRow(query, email).Scan(
@@ -53,6 +66,10 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 		&user.IsVerified,
 		&user.VerificationToken,
 		&user.VerificationTokenExpires,
+		&user.Nickname,         // 🔹 новое
+		&user.NativeLanguage,   // 🔹 новое
+		&user.LearningLanguage, // 🔹 новое
+		&user.IsSetup,          // 🔹 новое
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -68,9 +85,13 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 }
 
 // FindByID находит пользователя по ID
+// FindByID находит пользователя по ID
 func (r *UserRepository) FindByID(id int) (*models.User, error) {
-	query := `SELECT id, email, password_hash, is_verified, verification_token, verification_token_expires, created_at, updated_at 
-              FROM users WHERE id = $1`
+	query := `SELECT id, email, password_hash, is_verified, 
+		verification_token, verification_token_expires,
+		nickname, native_language, learning_language, is_setup,
+		created_at, updated_at 
+		FROM users WHERE id = $1`
 
 	var user models.User
 	err := r.db.QueryRow(query, id).Scan(
@@ -80,6 +101,10 @@ func (r *UserRepository) FindByID(id int) (*models.User, error) {
 		&user.IsVerified,
 		&user.VerificationToken,
 		&user.VerificationTokenExpires,
+		&user.Nickname,         // 🔹 новое
+		&user.NativeLanguage,   // 🔹 новое
+		&user.LearningLanguage, // 🔹 новое
+		&user.IsSetup,          // 🔹 новое
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -125,6 +150,39 @@ func (r *UserRepository) UpdateVerificationToken(userID int, token string, expir
 	_, err := r.db.Exec(query, token, expiresAt, time.Now(), userID)
 	if err != nil {
 		return fmt.Errorf("ошибка обновления токена подтверждения: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateProfileSetup обновляет данные профиля после первичной настройки
+// Возвращает ошибку, если никнейм уже занят
+// UpdateProfileSetup обновляет данные профиля после первичной настройки
+func (r *UserRepository) UpdateProfileSetup(userID int, nickname, nativeLang, learningLang string) error {
+	query := `UPDATE users 
+		SET nickname = $1, 
+			native_language = $2, 
+			learning_language = $3, 
+			is_setup = TRUE, 
+			updated_at = $4 
+		WHERE id = $5`
+
+	result, err := r.db.Exec(query, nickname, nativeLang, learningLang, time.Now(), userID)
+	if err != nil {
+		// Проверяем, не нарушено ли ограничение UNIQUE на nickname
+		if err.Error() == "pq: duplicate key value violates unique constraint \"users_nickname_key\"" {
+			return fmt.Errorf("никнейм уже занят")
+		}
+		return fmt.Errorf("ошибка обновления профиля: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка получения количества изменённых строк: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("пользователь не найден")
 	}
 
 	return nil

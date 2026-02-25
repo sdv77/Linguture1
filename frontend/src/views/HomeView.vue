@@ -67,15 +67,27 @@ import { useRouter } from 'vue-router'
 export default {
   name: 'HomeView',
   setup() {
-    const router = useRouter()
+  const router = useRouter()
 
-    // Если пользователь авторизован, перенаправляем на уроки
-    if (localStorage.getItem('token')) {
-      router.push('/lessons')
+  const token = localStorage.getItem('token')
+  
+  // Если пользователь авторизован
+  if (token) {
+    const isSetup = localStorage.getItem('profile_is_setup')
+    
+    // Если профиль точно не настроен → на настройку
+    if (isSetup === 'false') {
+      router.replace('/setup-profile')
+      return {}
     }
-
+    
+    // Иначе → на уроки
+    router.replace('/lessons')
     return {}
   }
+
+  return {}
+}
 }
 </script>
 

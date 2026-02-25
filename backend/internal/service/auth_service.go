@@ -55,13 +55,22 @@ func (s *AuthService) Register(input models.UserRegisterInput) error {
 	expiresAt := time.Now().Add(24 * time.Hour)
 
 	// Создаем пользователя
+	// В методе Register, при создании пользователя:
 	user := &models.User{
 		Email:                    input.Email,
 		PasswordHash:             string(passwordHash),
+		IsVerified:               false, // по умолчанию не подтверждён
 		VerificationToken:        verificationToken,
 		VerificationTokenExpires: &expiresAt,
-		CreatedAt:                time.Now(),
-		UpdatedAt:                time.Now(),
+
+		// 🔹 НОВЫЕ ПОЛЯ: профиль ещё не настроен 🔹
+		Nickname:         "",    // пусто, пока пользователь не укажет
+		NativeLanguage:   "",    // пусто
+		LearningLanguage: "",    // пусто
+		IsSetup:          false, // 🔹 ключевое: флаг "нужна настройка"
+
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -128,9 +137,55 @@ func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
 	}
 
 	return &models.UserResponse{
-		ID:         user.ID,
-		Email:      user.Email,
-		IsVerified: user.IsVerified,
-		CreatedAt:  user.CreatedAt,
+		ID:               user.ID,
+		Email:            user.Email,
+		Nickname:         user.Nickname,         // 🔹 новое
+		NativeLanguage:   user.NativeLanguage,   // 🔹 новое
+		LearningLanguage: user.LearningLanguage, // 🔹 новое
+		IsVerified:       user.IsVerified,
+		IsSetup:          user.IsSetup, // 🔹 критически важно для фронтенда!
+		CreatedAt:        user.CreatedAt,
 	}, nil
+}
+
+// Возвращает ошибку, если никнейм уже занят или данные невалидны
+// SetupProfile обновляет профиль пользователя после первичной авторизации
+func (s *AuthService) SetupProfile(userID int, input models.UserProfileSetupInput) error {
+	// 🔹 Простая валидация языков
+	validLanguages := map[string]bool{
+		"ru": true, "en": true, "es": true, "de": true, "fr": true, "it": true,
+		"pt": true, "zh": true, "ja": true, "ko": true, "ar": true, "tr": true,
+	}
+
+	if !validLanguages[input.NativeLanguage] {
+		return fmt.Errorf("неподдерживаемый родной язык: %s", input.NativeLanguage)
+	}
+	if !validLanguages[input.LearningLanguage] {
+		return fmt.Errorf("неподдерживаемый язык для изучения: %s", input.LearningLanguage)
+	}
+	if input.NativeLanguage == input.LearningLanguage {
+		return fmt.Errorf("родной язык и язык изучения не могут совпадать")
+	}
+
+	// 🔹 Валидация никнейма
+	if len(input.Nickname) < 3 || len(input.Nickname) > 30 {
+		return fmt.Errorf("никнейм должен быть от 3 до 30 символов")
+	}
+	for _, r := range input.Nickname {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+			return fmt.Errorf("никнейм может содержать только латинские буквы, цифры и подчёркивание")
+		}
+	}
+
+	// 🔹 Обновляем в репозитории
+	if err := s.userRepo.UpdateProfileSetup(userID, input.Nickname, input.NativeLanguage, input.LearningLanguage); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetUserByEmail получает пользователя по email (для использования в хендлерах)
+func (s *AuthService) GetUserByEmail(email string) (*models.User, error) {
+	return s.userRepo.FindByEmail(email)
 }

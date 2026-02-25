@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/sdv77/Linguture1/internal/models"
 	"github.com/sdv77/Linguture1/internal/service"
@@ -59,22 +60,23 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login обрабатывает вход пользователя
+// Login обрабатывает вход пользователя
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var input models.UserLoginInput
 
-	// Декодируем JSON из тела запроса
+	// 🔹 1. Декодируем JSON из тела запроса
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Неверный формат данных", http.StatusBadRequest)
 		return
 	}
 
-	// Валидация данных
+	// 🔹 2. Простая валидация: email и пароль не пустые
 	if input.Email == "" || input.Password == "" {
 		http.Error(w, "Email и пароль обязательны", http.StatusBadRequest)
 		return
 	}
 
-	// Выполняем вход
+	// 🔹 3. Выполняем вход через сервис (проверка пароля, генерация токена)
 	tokenResp, err := h.authService.Login(input)
 	if err != nil {
 		log.Printf("Ошибка входа: %v", err)
@@ -82,8 +84,45 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 🔹 4. Получаем данные пользователя для ответа
+	// Поскольку Login — публичный маршрут (без middleware),
+	// мы не можем взять userID из заголовка.
+	// Вместо этого запрашиваем пользователя по email (который мы уже проверили)
+	user, err := h.authService.GetUserByEmail(input.Email)
+	if err != nil {
+		// 🔹 Важно: не прерываем вход, если не удалось получить доп. данные
+		// Возвращаем хотя бы токен, чтобы пользователь мог войти
+		log.Printf("Предупреждение: не удалось получить данные пользователя после входа: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(tokenResp)
+		return
+	}
+
+	// 🔹 5. Формируем UserResponse с новыми полями профиля
+	userResp := &models.UserResponse{
+		ID:               user.ID,
+		Email:            user.Email,
+		Nickname:         user.Nickname,         // 🔹 новое поле
+		NativeLanguage:   user.NativeLanguage,   // 🔹 новое поле
+		LearningLanguage: user.LearningLanguage, // 🔹 новое поле
+		IsVerified:       user.IsVerified,
+		IsSetup:          user.IsSetup, // 🔹 критически важно для фронтенда!
+		CreatedAt:        user.CreatedAt,
+	}
+
+	// 🔹 6. Формируем итоговый ответ
+	// Флаг needs_setup — удобный булеан для фронтенда:
+	// если true → сразу показать окно настройки профиля
+	response := map[string]interface{}{
+		"token":       tokenResp.Token,
+		"expires_in":  tokenResp.ExpiresIn,
+		"user":        userResp,
+		"needs_setup": !user.IsSetup, // 🔹 инвертируем: если IsSetup=false → needs_setup=true
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tokenResp)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 // VerifyEmail обрабатывает подтверждение почты
@@ -127,4 +166,57 @@ func (h *AuthHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
+}
+
+// SetupProfile обрабатывает первичную настройку профиля
+func (h *AuthHandler) SetupProfile(w http.ResponseWriter, r *http.Request) {
+	// Получаем userID из заголовка (добавленного middleware)
+	userIDStr := r.Header.Get("X-User-ID")
+	if userIDStr == "" {
+		http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, "Неверный ID пользователя", http.StatusBadRequest)
+		return
+	}
+
+	var input models.UserProfileSetupInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Неверный формат данных", http.StatusBadRequest)
+		return
+	}
+
+	// Валидация на уровне хендлера
+	if input.Nickname == "" || input.NativeLanguage == "" || input.LearningLanguage == "" {
+		http.Error(w, "Все поля обязательны", http.StatusBadRequest)
+		return
+	}
+
+	// Вызываем сервис
+	if err := h.authService.SetupProfile(userID, input); err != nil {
+		log.Printf("Ошибка настройки профиля: %v", err)
+
+		// Разные ошибки → разные HTTP-коды
+		if err.Error() == "никнейм уже занят" {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		if err.Error() == "пользователь не найден или уже настроен" {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":  "Профиль успешно настроен!",
+		"is_setup": true,
+	})
 }
