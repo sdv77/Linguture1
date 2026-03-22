@@ -1,9 +1,6 @@
 version: '3.8'
 
 services:
-  # ============================================================================
-  # База данных PostgreSQL
-  # ============================================================================
   postgres:
     image: postgres:15-alpine
     container_name: linguture_db
@@ -15,7 +12,8 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d  # ⭐ Монтируем скрипты инициализации
+      - ./db/init:/docker-entrypoint-initdb.d
+      - ./backups:/backups  # 🔹 Том для бэкапов (добавлено)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -25,9 +23,6 @@ services:
       - linguture_network
     restart: unless-stopped
 
-  # ============================================================================
-  # Adminer (админка для базы данных)
-  # ============================================================================
   adminer:
     image: adminer:latest
     container_name: linguture_adminer
@@ -42,7 +37,6 @@ services:
       - linguture_network
     restart: unless-stopped
 
-  # backend-api сервис
   backend-api:
     build:
       context: ./backend
@@ -65,9 +59,10 @@ services:
     networks:
       - linguture_network
     restart: unless-stopped
-    command: ["./app", "api"]  # ✅ Запускаем с аргументом "api"
+    command: ["./app", "api"]
+    volumes:
+      - ./backups:/app/backups  # 🔹 Монтируем папку бэкапов в контейнер бэкенда
 
-  # backend-admin сервис
   backend-admin:
     build:
       context: ./backend
@@ -92,7 +87,9 @@ services:
     networks:
       - linguture_network
     restart: unless-stopped
-    command: ["./app", "admin"]  # ✅ Запускаем с аргументом "admin"
+    command: ["./app", "admin"]
+    volumes:
+      - ./backups:/app/backups  # 🔹 Монтируем папку бэкапов в контейнер бэкенда
 
   frontend:
     build:
@@ -111,9 +108,6 @@ services:
     restart: unless-stopped
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
-# ============================================================================
-# Сети и тома
-# ============================================================================
 networks:
   linguture_network:
     driver: bridge

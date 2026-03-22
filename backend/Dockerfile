@@ -1,7 +1,4 @@
 # backend/Dockerfile
-# ============================================================================
-
-# Этап 1: Сборка
 FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates
@@ -12,14 +9,13 @@ RUN go mod download
 
 COPY . .
 
-# Собираем ОДИН бинарник с именем 'app'
-# Он будет поддерживать аргументы: ./app admin или ./app api
 RUN go build -o app ./cmd/main.go
 
-# Этап 2: Запуск
+# 🔹 ВАЖНО: Второй этап с postgresql-client
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates postgresql-client
+
 WORKDIR /app
 
 COPY --from=builder /app/app .
