@@ -1,24 +1,14 @@
-# ============================================================================
-# Frontend Dockerfile (Node.js / Vue.js)
-# ============================================================================
-
-# Используем официальный образ Node.js
-FROM node:20-alpine
-
-# Устанавливаем рабочую директорию
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Копируем файлы зависимостей
 COPY package*.json ./
-
-# Устанавливаем зависимости (кэшируется)
 RUN npm install
-
-# Копируем весь исходный код
 COPY . .
+RUN npm run build
 
-# Открываем порт для Vite
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install -g serve
+COPY --from=builder /app/dist ./dist
 EXPOSE 5173
-
-# Запускаем режим разработки
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["serve", "-s", "dist", "-l", "5173"]
