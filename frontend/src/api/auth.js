@@ -1,6 +1,6 @@
 // src/api/auth.js
 
-const API_BASE_URL = 'http://localhost:8080/api'
+const API_BASE_URL = 'http://147.45.73.252:8080/api'
 
 // Вспомогательная функция для выполнения запросов
 async function request(url, options = {}) {
