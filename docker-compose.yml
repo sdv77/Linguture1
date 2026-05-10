@@ -95,8 +95,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: http://147.45.73.252:8080
     container_name: linguture_frontend
     environment:
       FRONTEND_PORT: 5173
